@@ -1,21 +1,8 @@
-# Задание 1
-# Необходимо собрать информацию о вакансиях на вводимую должность
-# (используем input или через аргументы получаем должность) с сайтов HH(обязательно) и/или Superjob(по желанию).
-# Приложение должно анализировать несколько страниц сайта (также вводим через input или аргументы).
-# Получившийся список должен содержать в себе минимум:
-#
-# Наименование вакансии.
-# Предлагаемую зарплату (отдельно минимальную и максимальную).
-# Ссылку на саму вакансию.
-# Сайт, откуда собрана вакансия.
-# По желанию можно добавить ещё параметры вакансии (например, работодателя и расположение).
-# Структура должна быть одинаковая для вакансий с обоих сайтов.
-# Общий результат можно вывести с помощью dataFrame через pandas. Сохраните в json либо csv.
-
 from bs4 import BeautifulSoup as bs
 import requests
 import re
 import json
+from pymongo import MongoClient
 from pprint import pprint
 
 
@@ -71,7 +58,10 @@ params = {'area': '1',
 headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15'}
 page = 1
 
-vacancies = []
+client = MongoClient('localhost', 27017)
+db = client['scraping_db']
+collection = db.vacancy_collection
+
 while True:
     params['page'] = page
     try:
@@ -103,12 +93,25 @@ while True:
         vacancy_info['salary'] = vacancy_salary
         vacancy_info['source'] = 'HeadHunter'
 
-        vacancies.append(vacancy_info)
+        collection.update_one({'link': vacancy_info['link']}, {'$set': vacancy_info}, upsert=True)
     if soup.find('a', attrs={'data-qa': 'pager-next'}) and page < max_page:
         page += 1
     else:
         break
 
-save_vacancies(vacancies)
-pprint(vacancies)
+# for i, doc in enumerate(collection.find({})):
+#     print(i, doc)
 
+while True:
+    try:
+        sal = int(input('Введите зарплату: '))
+        break
+    except ValueError:
+        print('Ошибка ввода!')
+
+searched_vacancies = collection.find({'$or': [
+    {'salary.from': {'$gt': sal}},
+    {'salary.to': {'$gt': sal}}
+]})
+for doc in searched_vacancies:
+    print(doc)
