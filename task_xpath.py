@@ -41,7 +41,6 @@ def collect_mailru_news():
     headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15'}
     response = requests.get(url, headers=headers)
     dom = html.fromstring(response.text)
-    # links = dom.xpath("//table[@class='daynews__inner']//@href | ")
     links = dom.xpath("//div[@class='js-module']//@href")
     news_list = []
     for link in links:
@@ -52,7 +51,7 @@ def collect_mailru_news():
         str_date = dom.xpath("//span[@class='note']/span/@datetime")[0][:-6:]
         news_info['date'] = datetime.datetime.strptime(str_date, '%Y-%m-%dT%H:%M:%S')
         news_info['link'] = link
-        news_info['source'] = dom.xpath("//span[@class='note']/a/text()")[0]
+        news_info['source'] = dom.xpath("//span[@class='note']/a/span/text()")[0]
         news_list.append(news_info)
 
     return news_list
