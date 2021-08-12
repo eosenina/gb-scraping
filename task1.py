@@ -4,25 +4,22 @@
 # текст письма полный)
 # Логин тестового ящика: study.ai_172@mail.ru
 # Пароль тестового ящика: NextPassword172!?
-import datetime
+
 import os
 import time
-import locale
-from pprint import pprint
 
 from pymongo import MongoClient
 from selenium import webdriver
 from selenium.webdriver import ActionChains
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 
-locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
 
 chrome_options = Options()
 chrome_options.add_argument("start-maximized")
+chrome_options.add_argument("--headless")
 driver = webdriver.Chrome(os.path.join(os.getcwd(), 'chromedriver'), options=chrome_options)
 driver.get('https://mail.ru')
 
@@ -39,12 +36,9 @@ time.sleep(5)
 letter_links = set()
 first_iter = True
 last_link = ''
-# i = 0
+wait = WebDriverWait(driver, 10)
 while True:
-    # i += 1
-    wait = WebDriverWait(driver, 10)
     links = wait.until(EC.presence_of_all_elements_located((By.XPATH, "//div[@class='dataset__items']/a")))
-    # links = driver.find_elements_by_xpath("//div[@class='dataset__items']/a")
     if last_link == links[-1].get_attribute('href') and not first_iter:
         break
     else:
@@ -60,28 +54,23 @@ client = MongoClient('localhost', 27017)
 db = client['scraping_db']
 collection = db.letters_collection
 
-chrome_options.add_argument("--headless")
-driver = webdriver.Chrome(os.path.join(os.getcwd(), 'chromedriver'), options=chrome_options)
 for link in letter_links:
+    print(link)
     letter_info = {}
     try:
         driver.get(link)
-        body = wait.until(EC.presence_of_all_elements_located((By.ID, 'email_content_mr_css_attr')))
-
+        wait_body = WebDriverWait(driver, 20)
+        body = wait_body.until(EC.presence_of_element_located((By.CLASS_NAME, 'letter-body__body')))
         letter_info['subject'] = driver.find_element_by_xpath("//h2[@class='thread__subject']").text
         letter_info['link'] = link
         letter_info['from'] = driver.find_element_by_xpath("//div[@class='letter__author']/span").text
-        # str_date = driver.find_element_by_xpath("//div[@class='letter__date']")
         str_date = driver.find_element_by_class_name('letter__date').text
-        letter_info['date'] = datetime.datetime.strptime(str_date, '%d %B, %H:%M')
-        letter_info['body'] = body
+        letter_info['date'] = str_date
+        letter_info['body'] = body.text
     except Exception as err:
         print(str(err))
         continue
 
     collection.update_one({'link': link}, {'$set': letter_info}, upsert=True)
 
-
-print(len(letter_links))
-for i, item in enumerate(collection.find({})):
-    pprint(i, item)
+print(len(collection.find({})))
