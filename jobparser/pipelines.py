@@ -17,39 +17,54 @@ class JobparserPipeline:
         self.mongo_base = client['vacancies_scrapy']
 
     def __parse_salary_hh(self, line):
-        pattern1 = re.compile(r'от\s*(\d*)\s*до\s*(\d*)\s*(.*)')
-        pattern2 = re.compile(r'от\s*(\d*)\s*(.*)')
-        pattern3 = re.compile(r'до\s*(\d*)\s*(.*)')
+        patterns = {'full': re.compile(r'от\s*(\d*)\s*до\s*(\d*)\s*(.*)'),
+                    'from': re.compile(r'от\s*(\d*)\s*(.*)'),
+                    'to': re.compile(r'до\s*(\d*)\s*(.*)')
+                    }
+        return self.__try_salary_patterns(patterns, line)
+
+    def __try_salary_patterns(self, pattern_dict, line):
         salary = {}
         try:
-            p_line = pattern1.match(line)
+            p_line = pattern_dict['full'].match(line)
             if p_line:
                 salary['from'] = int(p_line.groups()[0].replace('\u202f', ''))
                 salary['to'] = int(p_line.groups()[1].replace('\u202f', ''))
                 salary['currency'] = p_line.groups()[2]
                 return salary
-            p_line = pattern2.match(line)
-            if p_line:
-                salary['to'] = int(p_line.groups()[0].replace('\u202f', ''))
-                salary['currency'] = p_line.groups()[1]
-                return salary
-            p_line = pattern3.match(line)
+            p_line = pattern_dict['from'].match(line)
             if p_line:
                 salary['from'] = int(p_line.groups()[0].replace('\u202f', ''))
+                salary['currency'] = p_line.groups()[1]
+                return salary
+            p_line = pattern_dict['to'].match(line)
+            if p_line:
+                salary['to'] = int(p_line.groups()[0].replace('\u202f', ''))
                 salary['currency'] = p_line.groups()[1]
                 return salary
         except ValueError:
             print('Ошибка!!!')
         return salary
 
+    def __parse_salary_sj(self, line):
+        patterns = {'full': re.compile(r'от\s*(\d*)\s*до\s*(\d*)\s*(.*)/месяц'),
+                    'from': re.compile(r'от\s*(\d*)\s*(.*)/месяц'),
+                    'to': re.compile(r'до\s*(\d*)\s*(.*)/месяц')
+                    }
+        return self.__try_salary_patterns(patterns, line)
+
     def process_item(self, item, spider):
+        sal_parsed = {}
         if spider.name == 'hhru':
             sal_parsed = self.__parse_salary_hh(item['salary_from'].replace('\xa0', ''))
-            item['salary_from'] = sal_parsed.get('from')
-            item['salary_to'] = sal_parsed.get('to')
-            item['salary_currency'] = sal_parsed.get('currency')
         if spider.name == 'sjru':
-            pass
+            print()
+            sal_line = ''.join(item['salary_from']).replace('\xa0', '')
+            sal_parsed = self.__parse_salary_sj(sal_line)
+
+        item['salary_from'] = sal_parsed.get('from')
+        item['salary_to'] = sal_parsed.get('to')
+        item['salary_currency'] = sal_parsed.get('currency')
         item['site'] = spider.name
         collection = self.mongo_base[spider.name]
         collection.insert_one(item)
