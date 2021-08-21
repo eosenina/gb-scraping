@@ -15,7 +15,7 @@ class LeroySpider(scrapy.Spider):
         self.start_urls = [f'https://leroymerlin.ru/search/?q={search}']
 
     def parse(self, response: HtmlResponse):
-        next_page = response.xpath("//a[@data-qa-pagination-item='right']/@href")
+        next_page = response.xpath("//a[@data-qa-pagination-item='right']").extract_first()
         if next_page:
             yield response.follow(next_page, callback=self.parse)
 
@@ -28,8 +28,8 @@ class LeroySpider(scrapy.Spider):
         loader.add_xpath("name", "//h1/text()")
         loader.add_xpath("photos", "//picture/img/@data-origin")
         loader.add_value("url", response.url)
-        loader.add_xpath("specifications", "//dl[@class='def-list']/text()")
-        loader.add_xpath("price", "//span[@slot='price']/text()")
+        loader.add_xpath("spec", "//div[@class='def-list__group']/child::node()/text()")
+        loader.add_xpath("price", "//span[@slot='price']/text() | //span[@slot='fract']/text()")
 
         yield loader.load_item()
 

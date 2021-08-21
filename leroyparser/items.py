@@ -8,11 +8,14 @@ from itemloaders.processors import MapCompose, TakeFirst
 
 
 def convert_price(value):
-    return int(value)
+    return int(value.replace(' ', ''))
 
 
-def parse_specifications(spec):
-    pass
+def convert_spec(value):
+    value = value.replace('\n', '')
+    while "  " in value:
+        value = value.replace('  ', ' ')
+    return value
 
 
 class LeroyParserItem(scrapy.Item):
@@ -20,4 +23,5 @@ class LeroyParserItem(scrapy.Item):
     photos = scrapy.Field()
     url = scrapy.Field()
     price = scrapy.Field(input_processor=MapCompose(convert_price))
-    specifications = scrapy.Field(input_processor=MapCompose(parse_specifications))
+    spec = scrapy.Field(input_processor=MapCompose(convert_spec))
+    _id = scrapy.Field()

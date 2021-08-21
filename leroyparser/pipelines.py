@@ -7,11 +7,20 @@
 # useful for handling different item types with a single interface
 import scrapy
 from itemadapter import ItemAdapter
+from pymongo import MongoClient
 from scrapy.pipelines.images import ImagesPipeline
 
 
 class LeroyParserPipeline:
+    def __init__(self):
+         client = MongoClient('localhost', 27017)
+         self.mongo_base = client['leroy_scrapy']
+
     def process_item(self, item, spider):
+        item['price'] = item['price'][:2]
+        item['spec'] = {key: val for key, val in zip(item['spec'][::2], item['spec'][1::2])}
+        collection = self.mongo_base[spider.name]
+        collection.insert_one(item)
         return item
 
 
